@@ -629,7 +629,8 @@ h1, h2, h3, h4 {
     color: var(--accent-red);
 }
 
-.input-wrapper input {
+.input-wrapper input,
+.input-wrapper select {
     width: 100%;
     background: rgba(10, 11, 18, 0.7);
     border: 1px solid var(--border-subtle);
@@ -642,13 +643,20 @@ h1, h2, h3, h4 {
     transition: var(--transition);
 }
 
-.input-wrapper input:focus {
+.input-wrapper select option {
+    background: #121422;
+    color: var(--text-primary);
+}
+
+.input-wrapper input:focus,
+.input-wrapper select:focus {
     border-color: var(--accent-cyan);
     box-shadow: 0 0 16px var(--accent-cyan-glow);
     background: rgba(10, 11, 18, 0.95);
 }
 
-.input-wrapper input.is-invalid {
+.input-wrapper input.is-invalid,
+.input-wrapper select.is-invalid {
     border-color: var(--accent-red);
     box-shadow: 0 0 12px rgba(255, 51, 102, 0.3);
 }

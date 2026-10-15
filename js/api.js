@@ -6,19 +6,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.querySelector('.ebook-download-form') || document.getElementById('form-registro');
   if (!form) return;
 
+  const inputName = document.getElementById('ebook-form-name') || document.getElementById('nombre');
+  const inputEmail = document.getElementById('ebook-email') || document.getElementById('email');
+  const inputInterest = document.getElementById('interest') || document.getElementById('ebook-interest');
+
+  const errorName = document.getElementById('error-nombre');
+  const errorEmail = document.getElementById('error-email');
+  const errorInterest = document.getElementById('error-interest');
+
+  // Limpiar errores en tiempo real
+  if (inputName) inputName.addEventListener('input', () => { inputName.classList.remove('is-invalid'); if (errorName) errorName.textContent = ''; });
+  if (inputEmail) inputEmail.addEventListener('input', () => { inputEmail.classList.remove('is-invalid'); if (errorEmail) errorEmail.textContent = ''; });
+  if (inputInterest) inputInterest.addEventListener('change', () => { inputInterest.classList.remove('is-invalid'); if (errorInterest) errorInterest.textContent = ''; });
+
   form.addEventListener('submit', async (event) => {
     // Evitamos la recarga normal del formulario.
     event.preventDefault();
 
-    // Leemos los valores del DOM de forma robusta
-    const inputName = document.getElementById('ebook-form-name') || document.getElementById('nombre');
-    const inputEmail = document.getElementById('ebook-email') || document.getElementById('email');
-
     const name = (inputName ? inputName.value : '').trim();
     const email = (inputEmail ? inputEmail.value : '').trim();
+    const interest = (inputInterest ? inputInterest.value : '').trim();
 
-    // El payload envía tanto name como nombre para máxima compatibilidad
-    const payload = { name, email, nombre: name };
+    // Validación cliente
+    let isValid = true;
+    if (!name) {
+      if (inputName) inputName.classList.add('is-invalid');
+      if (errorName) errorName.textContent = 'El nombre o gamertag es obligatorio.';
+      isValid = false;
+    }
+    if (!email) {
+      if (inputEmail) inputEmail.classList.add('is-invalid');
+      if (errorEmail) errorEmail.textContent = 'El correo electrónico es obligatorio.';
+      isValid = false;
+    }
+    if (!interest) {
+      if (inputInterest) inputInterest.classList.add('is-invalid');
+      if (errorInterest) errorInterest.textContent = 'Por favor selecciona tu disciplina o evento de interés.';
+      isValid = false;
+    }
+
+    if (!isValid) return;
+
+    // Payload con los 3 campos mínimos de evaluación: name, email, interest
+    const payload = {
+      name,
+      nombre: name,
+      email,
+      interest,
+      message: `Inscripción para disciplina: ${interest}`
+    };
     console.log('[API.JS] Enviando payload:', payload);
 
     // Feedback visual en la interfaz si existe
@@ -49,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (feedbackBox && feedbackText) {
         feedbackBox.className = 'form-feedback success';
         if (feedbackIcon) feedbackIcon.textContent = '✓';
-        feedbackText.textContent = `${result.message} (${name})!`;
+        feedbackText.textContent = `${result.message} (${name} - ${interest})!`;
         feedbackBox.style.display = 'flex';
       } else {
         alert(result.message);
