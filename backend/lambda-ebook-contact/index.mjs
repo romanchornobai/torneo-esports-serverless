@@ -1,22 +1,27 @@
-// SDK v3: cliente DynamoDB + operación PutItem.
+// DynamoDB: persistencia.
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
  
-// crypto forma parte de Node.js y nos permite generar un UUID único.
+// SNS: mensajería publish/subscribe.
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import crypto from 'crypto';
  
-// Lambda ya conoce su región mediante el entorno AWS.
 const ddb = new DynamoDBClient({});
+const sns = new SNSClient({});
+ 
 const TABLE_NAME = 'ContactMessages';
+ 
+// IMPORTANTE: Topic ARN de EbookRequests real de la cuenta
+const TOPIC_ARN = 'arn:aws:sns:us-east-1:014181419088:EbookRequests';
  
 export const handler = async (event) => {
   console.log('Evento HTTP recibido:', JSON.stringify(event, null, 2));
 
+  // Manejo de preflight OPTIONS
   if (event.httpMethod === 'OPTIONS') {
     return response(200, {});
   }
  
   try {
-    // API Gateway entrega body como texto JSON.
     const body = JSON.parse(event.body ?? '{}');
     const name = (body.name ?? body.nombre ?? '').trim();
     const email = (body.email ?? '').trim();
@@ -25,45 +30,48 @@ export const handler = async (event) => {
       return response(400, { success: false, error: 'Name y email son obligatorios' });
     }
  
-    // Cada solicitud necesita una partition key única.
     const id = crypto.randomUUID();
     const timestamp = new Date().toISOString();
+    const phone = (body.phone ?? 'N/A');
+    const message = (body.message ?? 'Inscripción Torneo eSports NEXUS ARENA');
  
-    // Item en formato DynamoDB de bajo nivel.
-    // S significa String.
-    const item = {
-      id:        { S: id },
-      name:      { S: name },
-      email:     { S: email },
-      phone:     { S: (body.phone ?? 'N/A') },
-      message:   { S: (body.message ?? 'Inscripción Torneo eSports NEXUS ARENA') },
-      timestamp: { S: timestamp }
-    };
- 
-    // Esperamos a que DynamoDB confirme la escritura.
+    // 1 · PERSISTIMOS la solicitud en DynamoDB
     await ddb.send(new PutItemCommand({
       TableName: TABLE_NAME,
-      Item: item
+      Item: {
+        id:        { S: id },
+        name:      { S: name },
+        email:     { S: email },
+        phone:     { S: phone },
+        message:   { S: message },
+        timestamp: { S: timestamp }
+      }
     }));
  
     console.log('Item guardado en DynamoDB:', id);
  
+    // 2 · PUBLICAMOS que ha ocurrido una nueva solicitud en SNS
+    const snsResult = await sns.send(new PublishCommand({
+      TopicArn: TOPIC_ARN,
+      Subject: 'Nueva solicitud Torneo eSports - ' + name,
+      Message: JSON.stringify({
+        id, name, email, phone, message, timestamp
+      }, null, 2)
+    }));
+ 
+    console.log('Mensaje SNS publicado con ID:', snsResult.MessageId);
+ 
     return response(200, {
       success: true,
-      message: 'Solicitud guardada correctamente',
+      message: 'Solicitud guardada y notificada correctamente',
       id
     });
   } catch (error) {
-    // CloudWatch conservará el error real para diagnosticarlo.
     console.error('Error al procesar la solicitud:', error);
-    return response(500, {
-      success: false,
-      error: 'Error al procesar la solicitud'
-    });
+    return response(500, { success: false, error: 'Error al procesar la solicitud' });
   }
 };
  
-// Evitamos repetir statusCode, CORS y JSON.stringify.
 function response(statusCode, payload) {
   return {
     statusCode,
